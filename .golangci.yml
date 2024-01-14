@@ -1,0 +1,25 @@
+run:
+concurrency: 4
+deadline: 5m
+linters:
+  enable-all: true
+  disable:
+    - ifshort #deprecated
+    - maligned #deprecated
+    - interfacer #deprecated
+    - deadcode #deprecated
+    - nosnakecase #deprecated
+    - structcheck #deprecated
+    - scopelint #deprecated
+    - varcheck #deprecated
+    - golint #deprecated
+    - exhaustivestruct
+    - exhaustruct
+    - depguard
+linters-settings:
+  varnamelen:
+    ignore-names:
+      - err
+    ignore-decls:
+      -  v any
+      -  w *multipart.Writer

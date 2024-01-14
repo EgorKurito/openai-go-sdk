@@ -2,11 +2,11 @@ package main
 
 import (
 	"context"
-	"fmt"
-	"github.com/egorkurito/openai-go-sdk"
-	"github.com/joho/godotenv"
 	"log"
 	"os"
+
+	"github.com/egorkurito/openai-go-sdk"
+	"github.com/joho/godotenv"
 )
 
 func main() {
@@ -15,6 +15,7 @@ func main() {
 	}
 
 	client := openai.NewClient(os.Getenv("OPENAI_API_KEY"))
+
 	resp, err := client.CreateTranscription(
 		context.Background(),
 		openai.AudioParams{
@@ -23,9 +24,10 @@ func main() {
 		},
 	)
 	if err != nil {
-		fmt.Printf("Transcription error: %v\n", err)
+		log.Fatalf("Transcription error: %v\n", err)
+
 		return
 	}
 
-	fmt.Println(resp.Text)
+	log.Printf(resp.Text)
 }

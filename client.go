@@ -22,12 +22,12 @@ func NewClientWithConfig(config ClientConfig) *Client {
 	}
 }
 
-func (c *Client) sendRequest(req *http.Request, v interface{}) error {
+func (c *Client) sendRequest(req *http.Request, v any) error {
 	c.setDefaultHeader(req)
 
 	res, err := c.config.HTTPClient.Do(req)
 	if err != nil {
-		return err
+		return fmt.Errorf("sending request: %w", err)
 	}
 
 	defer res.Body.Close()
@@ -38,7 +38,7 @@ func (c *Client) sendRequest(req *http.Request, v interface{}) error {
 
 	if v != nil {
 		if err = json.NewDecoder(res.Body).Decode(v); err != nil {
-			return err
+			return fmt.Errorf("decoding response: %w", err)
 		}
 	}
 
@@ -64,12 +64,9 @@ func (c *Client) setDefaultHeader(req *http.Request) {
 	}
 }
 
-func isFailureStatusCode(resp *http.Response) bool {
-	return resp.StatusCode < http.StatusOK || resp.StatusCode >= http.StatusBadRequest
-}
-
 func (c *Client) handleErrorResp(resp *http.Response) error {
 	var errRes ErrorResponse
+
 	err := json.NewDecoder(resp.Body).Decode(&errRes)
 	if err != nil || errRes.Error == nil {
 		reqErr := &RequestError{
@@ -84,5 +81,10 @@ func (c *Client) handleErrorResp(resp *http.Response) error {
 	}
 
 	errRes.Error.HTTPStatusCode = resp.StatusCode
+
 	return errRes.Error
+}
+
+func isFailureStatusCode(resp *http.Response) bool {
+	return resp.StatusCode < http.StatusOK || resp.StatusCode >= http.StatusBadRequest
 }

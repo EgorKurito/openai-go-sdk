@@ -23,7 +23,8 @@ type AudioParams struct {
 	Model string
 
 	// The language of the input audio.
-	// Supplying the input language in [ISO-639-1](https://en.wikipedia.org/wiki/List_of_ISO_639-1_codes) format will improve accuracy and latency.
+	// Supplying the input language in [ISO-639-1](https://en.wikipedia.org/wiki/List_of_ISO_639-1_codes)
+	// format will improve accuracy and latency.
 	Language string
 
 	// An optional text to guide the model's style or continue a previous audio segment.
@@ -35,7 +36,9 @@ type AudioParams struct {
 
 	// The sampling temperature, between 0 and 1.
 	// Higher values like 0.8 will make the output more random, while lower values like
-	// 0.2 will make it more focused and deterministic. If set to 0, the model will use [log probability](https://en.wikipedia.org/wiki/Log_probability) to automatically increase the temperature until certain thresholds are hit.
+	// 0.2 will make it more focused and deterministic. If set to 0, the model will use
+	// [log probability](https://en.wikipedia.org/wiki/Log_probability)
+	// to automatically increase the temperature until certain thresholds are hit.
 	Temperature float32
 }
 
@@ -69,18 +72,20 @@ func (c *Client) callAudioAPI(ctx context.Context, params AudioParams, endpointS
 	var response AudioResponse
 
 	var formBody bytes.Buffer
-	w := multipart.NewWriter(&formBody)
+	writer := multipart.NewWriter(&formBody)
 
-	if err := audioMultipartForm(params, w); err != nil {
+	if err := audioMultipartForm(params, writer); err != nil {
 		return nil, err
 	}
 
 	urlSuffix := fmt.Sprintf("/audio/%s", endpointSuffix)
+
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, c.getFullURL(urlSuffix), &formBody)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("creating request: %w", err)
 	}
-	req.Header.Add("Content-Type", w.FormDataContentType())
+
+	req.Header.Add("Content-Type", writer.FormDataContentType())
 
 	if err = c.sendRequest(req, &response); err != nil {
 		return nil, err
@@ -91,72 +96,54 @@ func (c *Client) callAudioAPI(ctx context.Context, params AudioParams, endpointS
 
 // audioMultipartForm creates a form with audio file contents and the name of the model to use for audio processing.
 func audioMultipartForm(params AudioParams, w *multipart.Writer) error {
-	f, err := os.Open(params.FilePath)
-	if err != nil {
-		return fmt.Errorf("opening audio file: %w", err)
+	if err := addFileToForm(w, "file", params.FilePath); err != nil {
+		return err
 	}
-	defer f.Close()
 
-	fw, err := w.CreateFormFile("file", f.Name())
+	fields := map[string]string{
+		"model":       params.Model,
+		"prompt":      params.Prompt,
+		"temperature": fmt.Sprintf("%.2f", params.Temperature),
+		"language":    params.Language,
+	}
+
+	for key, value := range fields {
+		if value != "" {
+			if err := addFieldToForm(w, key, value); err != nil {
+				return err
+			}
+		}
+	}
+
+	w.Close()
+
+	return nil
+}
+
+func addFileToForm(w *multipart.Writer, fieldName, filePath string) error {
+	file, err := os.Open(filePath)
+	if err != nil {
+		return fmt.Errorf("opening file: %w", err)
+	}
+	defer file.Close()
+
+	fw, err := w.CreateFormFile(fieldName, file.Name())
 	if err != nil {
 		return fmt.Errorf("creating form file: %w", err)
 	}
 
-	if _, err = io.Copy(fw, f); err != nil {
-		return fmt.Errorf("reading from opened audio file: %w", err)
-	}
+	_, err = io.Copy(fw, file)
 
-	fw, err = w.CreateFormField("model")
+	return fmt.Errorf("copying file: %w", err)
+}
+
+func addFieldToForm(w *multipart.Writer, fieldName, fieldValue string) error {
+	fw, err := w.CreateFormField(fieldName)
 	if err != nil {
 		return fmt.Errorf("creating form field: %w", err)
 	}
 
-	modelName := bytes.NewReader([]byte(params.Model))
-	if _, err = io.Copy(fw, modelName); err != nil {
-		return fmt.Errorf("writing model name: %w", err)
-	}
+	_, err = fw.Write([]byte(fieldValue))
 
-	// Create a form field for the prompt (if provided)
-	if params.Prompt != "" {
-		fw, err = w.CreateFormField("prompt")
-		if err != nil {
-			return fmt.Errorf("creating form field: %w", err)
-		}
-
-		prompt := bytes.NewReader([]byte(params.Prompt))
-		if _, err = io.Copy(fw, prompt); err != nil {
-			return fmt.Errorf("writing prompt: %w", err)
-		}
-	}
-
-	// Create a form field for the temperature (if provided)
-	if params.Temperature != 0 {
-		fw, err = w.CreateFormField("temperature")
-		if err != nil {
-			return fmt.Errorf("creating form field: %w", err)
-		}
-
-		temperature := bytes.NewReader([]byte(fmt.Sprintf("%.2f", params.Temperature)))
-		if _, err = io.Copy(fw, temperature); err != nil {
-			return fmt.Errorf("writing temperature: %w", err)
-		}
-	}
-
-	// Create a form field for the language (if provided)
-	if params.Language != "" {
-		fw, err = w.CreateFormField("language")
-		if err != nil {
-			return fmt.Errorf("creating form field: %w", err)
-		}
-
-		language := bytes.NewReader([]byte(params.Language))
-		if _, err = io.Copy(fw, language); err != nil {
-			return fmt.Errorf("writing language: %w", err)
-		}
-	}
-
-	// Close the multipart writer
-	w.Close()
-
-	return nil
+	return fmt.Errorf("writing form field: %w", err)
 }
