@@ -16,6 +16,7 @@ linters:
     - exhaustivestruct
     - exhaustruct
     - depguard
+    - tagliatelle
 linters-settings:
   varnamelen:
     ignore-names:
