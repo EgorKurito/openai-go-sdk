@@ -14,6 +14,7 @@ const (
 	Whisper1 = "whisper-1"
 )
 
+// AudioParams - represents the request structure for API.
 type AudioParams struct {
 	// The audio file object (not file name) to transcribe, in one of these formats:
 	// flac, mp3, mp4, mpeg, mpga, m4a, ogg, wav, or webm.
@@ -42,7 +43,7 @@ type AudioParams struct {
 	Temperature float32
 }
 
-// AudioResponse represents a response structure for audio API.
+// AudioResponse represents a response structure for API.
 type AudioResponse struct {
 	Text string `json:"text"`
 }
@@ -68,7 +69,11 @@ func (c *Client) CreateTranslation(ctx context.Context, params AudioParams) (*Au
 }
 
 // callAudioAPI — API call to an audio endpoint.
-func (c *Client) callAudioAPI(ctx context.Context, params AudioParams, endpointSuffix string) (*AudioResponse, error) {
+func (c *Client) callAudioAPI(
+	ctx context.Context,
+	params AudioParams,
+	endpointSuffix string,
+) (*AudioResponse, error) {
 	var response AudioResponse
 
 	var formBody bytes.Buffer
